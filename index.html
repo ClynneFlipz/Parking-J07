@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parking Scheduler</title>
+
+<style>
+body{font-family:Arial;background:#f4f6f8;margin:0;padding-bottom:80px;}
+.contact-box{background:#0d3b66;color:white;text-align:center;padding:15px;font-size:16px;}
+.admin-bar{text-align:center;margin:10px;}
+.admin-bar button{padding:10px 14px;font-size:16px;border-radius:6px;}
+
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:10px;padding:0 5px;}
+.header{background:#1976d2;color:white;text-align:center;font-size:13px;padding:6px;border-radius:4px;}
+.day{min-height:70px;padding:6px;font-size:14px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.1);}
+.day strong{display:block;}
+.day .slots{font-size:11px;margin-top:4px;}
+
+.day.free{background:#e8f5e9;}
+.day.partial{background:#fff3cd;}
+.day.full{background:#ffebee;}
+
+.banner{text-align:center;padding:15px;}
+.banner img{width:100%;max-width:500px;border-radius:10px;}
+
+.modal{display:none;position:fixed;bottom:0;left:0;width:100%;max-height:80vh;overflow-y:auto;background:white;padding:15px;border-radius:16px 16px 0 0;box-shadow:0 -4px 10px rgba(0,0,0,.3);}
+
+.floating-book-btn{position:fixed;bottom:20px;right:20px;background:#ff6b00;color:white;padding:14px 18px;font-size:16px;font-weight:bold;border-radius:50px;text-decoration:none;box-shadow:0 4px 12px rgba(0,0,0,.3);}
+</style>
+</head>
+
+<body>
+
+<div class="contact-box">
+<strong>📞 Contact / Booking</strong><br>
+WhatsApp / Viber: +63 917 630 5244<br>
+Facebook: <a href="https://www.facebook.com/ClaiRe0725" target="_blank" style="color:#ffd166;">facebook.com/ClaiRe0725</a>
+</div>
+
+<div class="admin-bar" id="adminBar"></div>
+
+Year: <select id="yearSelect"></select>
+Month: <select id="monthSelect"></select>
+
+<div class="calendar" id="calendar"></div>
+
+<div class="banner">
+<img src="Parking Ad.jpg" alt="Parking Ad">
+</div>
+
+<div class="modal" id="bookingModal">
+<h3 id="selectedDate"></h3>
+<div id="timeSlots"></div>
+<button onclick="closeModal()">Close</button>
+</div>
+
+<a href="https://www.facebook.com/ClaiRe0725" target="_blank" class="floating-book-btn">BOOK NOW</a>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+firebase.initializeApp({
+ apiKey:"AIzaSyD3XfycRBSa2t52IFw4bnX3uhYtCY",
+ authDomain:"parking-system-j07.firebaseapp.com",
+ projectId:"parking-system-j07"
+});
+const db=firebase.firestore();
+
+const calendar=document.getElementById("calendar");
+const yearSelect=document.getElementById("yearSelect");
+const monthSelect=document.getElementById("monthSelect");
+const modal=document.getElementById("bookingModal");
+const selectedDateText=document.getElementById("selectedDate");
+const timeSlotsDiv=document.getElementById("timeSlots");
+const adminBar=document.getElementById("adminBar");
+
+let selectedDate="",isAdmin=false,unsubscribe=null;
+const ADMIN_PASS="admin123";
+
+/* ADMIN */
+function updateAdminBar(){
+ adminBar.innerHTML=isAdmin?`<button onclick="logoutAdmin()">Exit Admin</button>`:`<button onclick="adminLogin()">Admin Login</button>`;
+}
+function adminLogin(){if(prompt("Password")==ADMIN_PASS){isAdmin=true;updateAdminBar();loadTimeSlots();}}
+function logoutAdmin(){isAdmin=false;updateAdminBar();loadTimeSlots();}
+updateAdminBar();
+
+/* DATE SETUP */
+for(let y=2024;y<=2030;y++)yearSelect.innerHTML+=`<option>${y}</option>`;
+["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+.forEach((m,i)=>monthSelect.innerHTML+=`<option value="${i}">${m}</option>`);
+
+/* CALENDAR */
+function renderCalendar(){
+ calendar.innerHTML="";
+ const y=yearSelect.value,m=monthSelect.value;
+ const first=new Date(y,m,1).getDay();
+ const days=new Date(y,parseInt(m)+1,0).getDate();
+
+ ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(h=>calendar.innerHTML+=`<div class="header">${h}</div>`);
+ for(let i=0;i<first;i++)calendar.innerHTML+=`<div></div>`;
+
+ db.collection("bookings").get().then(snap=>{
+  const bookingsByDate={};
+
+  snap.forEach(doc=>{
+   const p=doc.id.split("-");
+   const date=p[0]+"-"+p[1]+"-"+p[2];
+   const hour=parseInt(p[3]);
+   if(!bookingsByDate[date]) bookingsByDate[date]=[];
+   bookingsByDate[date].push(hour);
+  });
+
+  for(let d=1;d<=days;d++){
+   const dateKey=`${y}-${m}-${d}`;
+   const hours=(bookingsByDate[dateKey]||[]).sort((a,b)=>a-b);
+
+   let statusClass="free";
+   if(hours.length===24)statusClass="full";
+   else if(hours.length>0)statusClass="partial";
+
+   let ranges=[],start=null,prev=null;
+   hours.forEach(h=>{
+    if(start===null){start=h;prev=h;}
+    else if(h===prev+1){prev=h;}
+    else{ranges.push(`${start}:00-${prev+1}:00`);start=h;prev=h;}
+   });
+   if(start!==null)ranges.push(`${start}:00-${prev+1}:00`);
+
+   calendar.innerHTML+=`
+    <div class="day ${statusClass}" onclick="openBooking('${dateKey}')">
+     <strong>${d}</strong>
+     <div class="slots">${ranges.map(r=>`🔴 ${r}`).join("<br>")}</div>
+    </div>`;
+  }
+ });
+}
+
+/* MODAL */
+function openBooking(date){
+ selectedDate=date;
+ const p=date.split("-");
+ selectedDateText.innerText=`Date: ${p[0]}-${String(parseInt(p[1])+1).padStart(2,"0")}-${p[2]}`;
+ modal.style.display="block";
+ loadTimeSlots();
+}
+function closeModal(){modal.style.display="none";}
+
+/* TIME SLOTS */
+function loadTimeSlots(){
+ timeSlotsDiv.innerHTML="";
+ if(typeof unsubscribe==="function"){unsubscribe();unsubscribe=null;}
+
+ unsubscribe=db.collection("bookings").onSnapshot(snap=>{
+  const booked={};snap.forEach(doc=>booked[doc.id]=true);
+  timeSlotsDiv.innerHTML="";
+  for(let h=0;h<24;h++){
+   const key=selectedDate+"-"+h;
+   const b=booked[key];
+   timeSlotsDiv.innerHTML+=`
+    <div>
+      ${h}:00-${h+1}:00
+      ${b?(isAdmin?`<span style="color:red;font-weight:bold">Booked</span><button onclick="removeSlot(${h})">Free</button>`:`<span style="color:red;font-weight:bold">Booked</span>`):(isAdmin?`<span style="color:green">Available</span><button onclick="bookSlot(${h})">Book</button>`:`<span style="color:green">Available</span>`)}
+    </div>`;
+  }
+ });
+}
+
+function bookSlot(h){db.collection("bookings").doc(selectedDate+"-"+h).set({});}
+function removeSlot(h){db.collection("bookings").doc(selectedDate+"-"+h).delete();}
+
+yearSelect.value=new Date().getFullYear();
+monthSelect.value=new Date().getMonth();
+yearSelect.onchange=renderCalendar;
+monthSelect.onchange=renderCalendar;
+renderCalendar();
+</script>
+
+</body>
+</html>
