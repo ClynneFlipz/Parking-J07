@@ -9,7 +9,11 @@
 body{font-family:Arial;background:#f4f6f8;margin:0;padding-bottom:80px;}
 
 .contact-box{
-background:#0d3b66;color:white;text-align:center;padding:15px;font-size:16px;
+background:#0d3b66;
+color:white;
+text-align:center;
+padding:15px;
+font-size:16px;
 }
 
 .admin-bar{text-align:center;margin:10px;}
@@ -38,6 +42,7 @@ padding:6px;
 font-size:14px;
 border-radius:6px;
 box-shadow:0 1px 3px rgba(0,0,0,.1);
+cursor:pointer;
 }
 
 .day.free{background:#e8f5e9;}
@@ -84,7 +89,10 @@ box-shadow:0 4px 12px rgba(0,0,0,.3);
 <div class="contact-box">
 <strong>📞 Contact / Booking</strong><br>
 WhatsApp / Viber: +63 917 630 5244<br>
-Facebook: <a href="https://www.facebook.com/ClaiRe0725" target="_blank" style="color:#ffd166;">facebook.com/ClaiRe0725</a>
+Facebook: 
+<a href="https://www.facebook.com/ClaiRe0725" target="_blank" style="color:#ffd166;">
+facebook.com/ClaiRe0725
+</a>
 </div>
 
 <div class="admin-bar" id="adminBar"></div>
@@ -115,6 +123,7 @@ Month:
 <script>
 
 /* FIREBASE */
+
 firebase.initializeApp({
 apiKey:"AIzaSyD3XfycRBSa2t52IFw4bnX3uhYtCY",
 authDomain:"parking-system-j07.firebaseapp.com",
@@ -179,18 +188,23 @@ monthSelect.value=now.getMonth();
 /* REALTIME BOOKINGS */
 
 db.collection("bookings").onSnapshot(snap=>{
+
 bookings={};
 
 snap.forEach(doc=>{
+
 const parts=doc.id.split("-");
 const date=parts[0]+"-"+parts[1]+"-"+parts[2];
 const hour=parseInt(parts[3]);
 
 if(!bookings[date]) bookings[date]=[];
+
 bookings[date].push(hour);
+
 });
 
 renderCalendar();
+
 });
 
 /* CALENDAR */
@@ -215,9 +229,11 @@ calendar.innerHTML+=`<div></div>`;
 for(let d=1;d<=daysInMonth;d++){
 
 const dateKey=`${y}-${m}-${d}`;
+
 const hours=bookings[dateKey]||[];
 
 let status="free";
+
 if(hours.length===24) status="full";
 else if(hours.length>0) status="partial";
 
@@ -229,7 +245,8 @@ calendar.innerHTML+=`
 <div class="slots">
 ${available} hrs available
 </div>
-</div>`;
+</div>
+`;
 }
 
 }
@@ -241,10 +258,13 @@ function openBooking(date){
 selectedDate=date;
 
 const p=date.split("-");
+
 selectedDateText.innerText=`Date: ${p[0]}-${parseInt(p[1])+1}-${p[2]}`;
 
 modal.style.display="block";
+
 loadTimeSlots();
+
 }
 
 function closeModal(){
@@ -270,39 +290,46 @@ ${
 booked
 ? (isAdmin
 ? `<span style="color:red">Booked</span>
-<button onclick="removeSlot(${h})">Free</button>`
+<button onclick="event.stopPropagation(); removeSlot(${h})">Free</button>`
 : `<span style="color:red">Booked</span>`
 )
 : (isAdmin
 ? `<span style="color:green">Available</span>
-<button onclick="bookSlot(${h})">Book</button>`
+<button onclick="event.stopPropagation(); bookSlot(${h})">Book</button>`
 : `<span style="color:green">Available</span>`
 )
 }
-</div>`;
+</div>
+`;
 }
 
 }
 
-/* BOOKING FUNCTIONS */
+/* BOOK */
 
 function bookSlot(h){
 
 const key=selectedDate+"-"+h;
 
 db.collection("bookings").doc(key).get().then(doc=>{
+
 if(doc.exists){
 alert("Already booked.");
 return;
 }
 
 db.collection("bookings").doc(key).set({});
+
 });
 
 }
 
+/* FREE */
+
 function removeSlot(h){
+
 db.collection("bookings").doc(selectedDate+"-"+h).delete();
+
 }
 
 /* EVENTS */
