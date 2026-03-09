@@ -6,23 +6,29 @@
 <title>Parking Scheduler</title>
 
 <style>
-body{font-family:Arial;background:#f4f6f8;margin:0;padding-bottom:80px;}
+body{
+font-family:Arial;
+background:#f4f6f8;
+margin:0;
+padding-bottom:80px;
+}
 
 .contact-box{
 background:#0d3b66;
 color:white;
 text-align:center;
 padding:15px;
-font-size:16px;
 }
 
-.admin-bar{text-align:center;margin:10px;}
-.admin-bar button{padding:8px 12px;}
+.admin-bar{
+text-align:center;
+margin:10px;
+}
 
 .calendar{
 display:grid;
 grid-template-columns:repeat(7,1fr);
-gap:4px;
+gap:5px;
 margin:10px;
 }
 
@@ -31,17 +37,14 @@ background:#1976d2;
 color:white;
 text-align:center;
 padding:6px;
-font-size:13px;
-border-radius:4px;
 }
 
 .day{
 background:white;
 min-height:70px;
 padding:6px;
-font-size:14px;
 border-radius:6px;
-box-shadow:0 1px 3px rgba(0,0,0,.1);
+box-shadow:0 1px 3px rgba(0,0,0,.2);
 cursor:pointer;
 }
 
@@ -49,7 +52,10 @@ cursor:pointer;
 .day.partial{background:#fff3cd;}
 .day.full{background:#ffebee;}
 
-.slots{font-size:11px;margin-top:4px;}
+.slots{
+font-size:11px;
+margin-top:5px;
+}
 
 .modal{
 display:none;
@@ -57,30 +63,29 @@ position:fixed;
 bottom:0;
 left:0;
 width:100%;
-max-height:80vh;
-overflow-y:auto;
 background:white;
+max-height:80vh;
+overflow:auto;
 padding:15px;
-border-radius:16px 16px 0 0;
 box-shadow:0 -4px 10px rgba(0,0,0,.3);
+z-index:9999;
 }
 
-.banner{text-align:center;padding:15px;}
-.banner img{max-width:500px;width:100%;border-radius:10px;}
-
-.floating-book-btn{
-position:fixed;
-bottom:20px;
-right:20px;
-background:#ff6b00;
-color:white;
-padding:14px 18px;
-font-size:16px;
-font-weight:bold;
-border-radius:50px;
-text-decoration:none;
-box-shadow:0 4px 12px rgba(0,0,0,.3);
+button{
+margin-left:5px;
 }
+
+.banner{
+text-align:center;
+padding:15px;
+}
+
+.banner img{
+max-width:500px;
+width:100%;
+border-radius:10px;
+}
+
 </style>
 </head>
 
@@ -88,20 +93,13 @@ box-shadow:0 4px 12px rgba(0,0,0,.3);
 
 <div class="contact-box">
 <strong>📞 Contact / Booking</strong><br>
-WhatsApp / Viber: +63 917 630 5244<br>
-Facebook: 
-<a href="https://www.facebook.com/ClaiRe0725" target="_blank" style="color:#ffd166;">
-facebook.com/ClaiRe0725
-</a>
+WhatsApp / Viber: +63 917 630 5244
 </div>
 
 <div class="admin-bar" id="adminBar"></div>
 
-Year:
-<select id="yearSelect"></select>
-
-Month:
-<select id="monthSelect"></select>
+Year <select id="yearSelect"></select>
+Month <select id="monthSelect"></select>
 
 <div class="calendar" id="calendar"></div>
 
@@ -109,13 +107,15 @@ Month:
 <img src="Parking Ad.jpg">
 </div>
 
-<div class="modal" id="bookingModal">
-<h3 id="selectedDate"></h3>
-<div id="timeSlots"></div>
-<button onclick="closeModal()">Close</button>
-</div>
+<div class="modal" id="modal">
 
-<a href="https://www.facebook.com/ClaiRe0725" target="_blank" class="floating-book-btn">BOOK NOW</a>
+<h3 id="selectedDate"></h3>
+
+<div id="slots"></div>
+
+<button onclick="closeModal()">Close</button>
+
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -132,212 +132,246 @@ projectId:"parking-system-j07"
 
 const db=firebase.firestore();
 
-/* ELEMENTS */
+/* GLOBALS */
 
-const calendar=document.getElementById("calendar");
-const yearSelect=document.getElementById("yearSelect");
-const monthSelect=document.getElementById("monthSelect");
-const modal=document.getElementById("bookingModal");
-const selectedDateText=document.getElementById("selectedDate");
-const timeSlotsDiv=document.getElementById("timeSlots");
-const adminBar=document.getElementById("adminBar");
+let bookings={}
+let selectedDate=""
+let isAdmin=false
 
-let selectedDate="";
-let isAdmin=false;
-const ADMIN_PASS="admin123";
+const calendar=document.getElementById("calendar")
+const modal=document.getElementById("modal")
+const slots=document.getElementById("slots")
+const selectedDateText=document.getElementById("selectedDate")
 
-let bookings={};
+const yearSelect=document.getElementById("yearSelect")
+const monthSelect=document.getElementById("monthSelect")
 
 /* ADMIN */
 
-function updateAdminBar(){
-adminBar.innerHTML=isAdmin
-? `<button onclick="logoutAdmin()">Exit Admin</button>`
-: `<button onclick="adminLogin()">Admin Login</button>`;
+function updateAdmin(){
+
+document.getElementById("adminBar").innerHTML=
+
+isAdmin
+? `<button onclick="logout()">Exit Admin</button>`
+: `<button onclick="login()">Admin Login</button>`
+
 }
 
-function adminLogin(){
-if(prompt("Password")==ADMIN_PASS){
-isAdmin=true;
-updateAdminBar();
-}
-}
+function login(){
 
-function logoutAdmin(){
-isAdmin=false;
-updateAdminBar();
+if(prompt("Password")==="admin123"){
+isAdmin=true
+updateAdmin()
 }
 
-updateAdminBar();
+}
 
-/* YEAR + MONTH */
+function logout(){
+
+isAdmin=false
+updateAdmin()
+
+}
+
+updateAdmin()
+
+/* YEAR MONTH */
 
 for(let y=2024;y<=2030;y++){
-yearSelect.innerHTML+=`<option value="${y}">${y}</option>`;
+yearSelect.innerHTML+=`<option value="${y}">${y}</option>`
 }
 
-["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-.forEach((m,i)=>{
-monthSelect.innerHTML+=`<option value="${i}">${m}</option>`;
-});
+const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 
-const now=new Date();
-yearSelect.value=now.getFullYear();
-monthSelect.value=now.getMonth();
+months.forEach((m,i)=>{
+monthSelect.innerHTML+=`<option value="${i}">${m}</option>`
+})
 
-/* REALTIME BOOKINGS */
+const now=new Date()
 
-db.collection("bookings").onSnapshot(snap=>{
+yearSelect.value=now.getFullYear()
+monthSelect.value=now.getMonth()
 
-bookings={};
+/* REALTIME DATA */
 
-snap.forEach(doc=>{
+db.collection("bookings").onSnapshot(snapshot=>{
 
-const parts=doc.id.split("-");
-const date=parts[0]+"-"+parts[1]+"-"+parts[2];
-const hour=parseInt(parts[3]);
+bookings={}
 
-if(!bookings[date]) bookings[date]=[];
+snapshot.forEach(doc=>{
 
-bookings[date].push(hour);
+const parts=doc.id.split("-")
 
-});
+const date=parts[0]+"-"+parts[1]+"-"+parts[2]
+const hour=parseInt(parts[3])
 
-renderCalendar();
+if(!bookings[date]) bookings[date]=[]
 
-});
+bookings[date].push(hour)
+
+})
+
+renderCalendar()
+
+})
 
 /* CALENDAR */
 
 function renderCalendar(){
 
-calendar.innerHTML="";
+calendar.innerHTML=""
 
-const y=parseInt(yearSelect.value);
-const m=parseInt(monthSelect.value);
+const y=parseInt(yearSelect.value)
+const m=parseInt(monthSelect.value)
 
-const firstDay=new Date(y,m,1).getDay();
-const daysInMonth=new Date(y,m+1,0).getDate();
+const firstDay=new Date(y,m,1).getDay()
+const days=new Date(y,m+1,0).getDate()
 
-["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
-.forEach(d=>calendar.innerHTML+=`<div class="header">${d}</div>`);
+const headers=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
+
+headers.forEach(h=>{
+calendar.innerHTML+=`<div class="header">${h}</div>`
+})
 
 for(let i=0;i<firstDay;i++){
-calendar.innerHTML+=`<div></div>`;
+calendar.innerHTML+=`<div></div>`
 }
 
-for(let d=1;d<=daysInMonth;d++){
+for(let d=1;d<=days;d++){
 
-const dateKey=`${y}-${m}-${d}`;
+const dateKey=`${y}-${m}-${d}`
 
-const hours=bookings[dateKey]||[];
+const hours=bookings[dateKey]||[]
 
-let status="free";
+let status="free"
 
-if(hours.length===24) status="full";
-else if(hours.length>0) status="partial";
-
-const available=24-hours.length;
+if(hours.length===24) status="full"
+else if(hours.length>0) status="partial"
 
 calendar.innerHTML+=`
-<div class="day ${status}" onclick="openBooking('${dateKey}')">
+
+<div class="day ${status}" onclick="openDay('${dateKey}')">
+
 <strong>${d}</strong>
+
 <div class="slots">
-${available} hrs available
+
+${24-hours.length} hrs free
+
 </div>
+
 </div>
-`;
+
+`
+
 }
 
 }
 
-/* MODAL */
+/* OPEN DAY */
 
-function openBooking(date){
+function openDay(date){
 
-selectedDate=date;
+selectedDate=date
 
-const p=date.split("-");
+modal.style.display="block"
 
-selectedDateText.innerText=`Date: ${p[0]}-${parseInt(p[1])+1}-${p[2]}`;
+selectedDateText.innerText="Date "+date
 
-modal.style.display="block";
-
-loadTimeSlots();
+renderSlots()
 
 }
 
 function closeModal(){
-modal.style.display="none";
+modal.style.display="none"
 }
 
-/* TIME SLOTS */
+/* SLOTS */
 
-function loadTimeSlots(){
+function renderSlots(){
 
-timeSlotsDiv.innerHTML="";
+slots.innerHTML=""
 
-const hours=bookings[selectedDate]||[];
+const hours=bookings[selectedDate]||[]
 
 for(let h=0;h<24;h++){
 
-const booked=hours.includes(h);
+const booked=hours.includes(h)
 
-timeSlotsDiv.innerHTML+=`
+slots.innerHTML+=`
+
 <div>
-${h}:00-${h+1}:00
+
+${h}:00 - ${h+1}:00
+
 ${
 booked
 ? (isAdmin
 ? `<span style="color:red">Booked</span>
-<button onclick="event.stopPropagation(); removeSlot(${h})">Free</button>`
-: `<span style="color:red">Booked</span>`
-)
+<button onclick="freeSlot(${h})">Free</button>`
+: `<span style="color:red">Booked</span>`)
 : (isAdmin
 ? `<span style="color:green">Available</span>
-<button onclick="event.stopPropagation(); bookSlot(${h})">Book</button>`
-: `<span style="color:green">Available</span>`
-)
+<button onclick="bookSlot(${h})">Book</button>`
+: `<span style="color:green">Available</span>`)
 }
+
 </div>
-`;
+
+`
+
 }
 
 }
 
 /* BOOK */
 
-function bookSlot(h){
+function bookSlot(hour){
 
-const key=selectedDate+"-"+h;
+const id=selectedDate+"-"+hour
 
-db.collection("bookings").doc(key).get().then(doc=>{
+if(!bookings[selectedDate]) bookings[selectedDate]=[]
 
-if(doc.exists){
-alert("Already booked.");
-return;
+if(bookings[selectedDate].includes(hour)){
+alert("Already booked")
+return
 }
 
-db.collection("bookings").doc(key).set({});
+/* UI update */
 
-});
+bookings[selectedDate].push(hour)
+
+renderSlots()
+renderCalendar()
+
+/* DATABASE */
+
+db.collection("bookings").doc(id).set({})
 
 }
 
 /* FREE */
 
-function removeSlot(h){
+function freeSlot(hour){
 
-db.collection("bookings").doc(selectedDate+"-"+h).delete();
+const id=selectedDate+"-"+hour
+
+bookings[selectedDate]=bookings[selectedDate].filter(h=>h!==hour)
+
+renderSlots()
+renderCalendar()
+
+db.collection("bookings").doc(id).delete()
 
 }
 
 /* EVENTS */
 
-yearSelect.onchange=renderCalendar;
-monthSelect.onchange=renderCalendar;
+yearSelect.onchange=renderCalendar
+monthSelect.onchange=renderCalendar
 
-renderCalendar();
+renderCalendar()
 
 </script>
 
