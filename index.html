@@ -6,6 +6,7 @@
 <title>Parking Scheduler</title>
 
 <style>
+
 body{
 font-family:Arial;
 background:#f4f6f8;
@@ -41,11 +42,12 @@ padding:6px;
 
 .day{
 background:white;
-min-height:70px;
+min-height:90px;
 padding:6px;
 border-radius:6px;
 box-shadow:0 1px 3px rgba(0,0,0,.2);
 cursor:pointer;
+font-size:12px;
 }
 
 .day.free{background:#e8f5e9;}
@@ -55,6 +57,7 @@ cursor:pointer;
 .slots{
 font-size:11px;
 margin-top:5px;
+line-height:1.4;
 }
 
 .modal{
@@ -73,6 +76,7 @@ z-index:9999;
 
 button{
 margin-left:5px;
+margin-top:3px;
 }
 
 .banner{
@@ -93,7 +97,8 @@ border-radius:10px;
 
 <div class="contact-box">
 <strong>📞 Contact / Booking</strong><br>
-WhatsApp / Viber: +63 917 630 5244
+WhatsApp / Viber: +63 917 630 5244<br>
+Facebook: facebook.com/ClaiRe0725
 </div>
 
 <div class="admin-bar" id="adminBar"></div>
@@ -193,7 +198,7 @@ const now=new Date()
 yearSelect.value=now.getFullYear()
 monthSelect.value=now.getMonth()
 
-/* REALTIME DATA */
+/* REALTIME BOOKINGS */
 
 db.collection("bookings").onSnapshot(snapshot=>{
 
@@ -241,13 +246,56 @@ calendar.innerHTML+=`<div></div>`
 for(let d=1;d<=days;d++){
 
 const dateKey=`${y}-${m}-${d}`
+const hours=(bookings[dateKey]||[]).sort((a,b)=>a-b)
 
-const hours=bookings[dateKey]||[]
+/* STATUS */
 
 let status="free"
-
 if(hours.length===24) status="full"
 else if(hours.length>0) status="partial"
+
+/* CALCULATE FREE HOURS */
+
+let freeHours=[]
+
+for(let h=0;h<24;h++){
+if(!hours.includes(h)) freeHours.push(h)
+}
+
+/* GROUP INTO RANGES */
+
+let ranges=[]
+let start=null
+let prev=null
+
+freeHours.forEach(h=>{
+
+if(start===null){
+start=h
+prev=h
+}
+else if(h===prev+1){
+prev=h
+}
+else{
+ranges.push(`${start}:00-${prev+1}:00`)
+start=h
+prev=h
+}
+
+})
+
+if(start!==null){
+ranges.push(`${start}:00-${prev+1}:00`)
+}
+
+/* DISPLAY */
+
+let slotHTML=""
+
+ranges.forEach(r=>{
+slotHTML+=`🟢 ${r}<br>`
+})
 
 calendar.innerHTML+=`
 
@@ -256,9 +304,7 @@ calendar.innerHTML+=`
 <strong>${d}</strong>
 
 <div class="slots">
-
-${24-hours.length} hrs free
-
+${slotHTML || "🔴 Fully Booked"}
 </div>
 
 </div>
@@ -287,7 +333,7 @@ function closeModal(){
 modal.style.display="none"
 }
 
-/* SLOTS */
+/* SLOT LIST */
 
 function renderSlots(){
 
@@ -338,14 +384,10 @@ alert("Already booked")
 return
 }
 
-/* UI update */
-
 bookings[selectedDate].push(hour)
 
 renderSlots()
 renderCalendar()
-
-/* DATABASE */
 
 db.collection("bookings").doc(id).set({})
 
